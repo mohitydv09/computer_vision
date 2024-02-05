@@ -8,21 +8,64 @@ Do not change the input/output of each function, and do not remove the provided 
 
 def get_differential_filter():
     # To do
+    filter_x = np.array([[1,0,-1],[1,0,-1],[1,0,-1]])
+    filter_y = np.array([[1,1,1],[0,0,0],[-1,-1,-1]])
     return filter_x, filter_y
 
 
 def filter_image(im, filter):
     # To do
+    ## Pad the image according to the filter size.
+    k = filter.shape[0]
+    pad_size = k//2
+    im_padded = np.zeros((im.shape[0] + 2*pad_size, im.shape[1] + 2*pad_size))
+    im_padded[1:-1,1:-1] = im
+    
+    m, n = im.shape
+    im_filtered = np.zeros((m,n))
+    # loop to go to every pixel calculate its value and store in im_filtered.
+    for i in range(pad_size, m+pad_size):
+        for j in range(pad_size, n+pad_size):
+            im_block = im_padded[i-pad_size:i+pad_size+1, j-pad_size:j+pad_size+1]
+            im_filtered[i-pad_size,j-pad_size] = np.sum(im_block*filter)
+    # im_filtered = im_filtered + 1
+    # im_filtered = im_filtered*(255/2)
+    # im_filtered = im_filtered.astype(np.uint8)
+    # cv2.imshow("Image ", im_filtered)
+    # cv2.waitKey(0)
     return im_filtered
 
 
 def get_gradient(im_dx, im_dy):
     # To do
+    # Go to pixels in the image and replace with the magnitute.
+    m,n = im_dx.shape
+    grad_mag = np.zeros((m,n))
+    grad_angle = np.zeros((m,n))
+    for i in range(m):
+        for j in range(n):
+            curr_mag = np.sqrt(np.square(im_dx[i,j]) + np.square(im_dy[i,j]))
+            grad_mag[i,j] = curr_mag
+            grad_angle[i,j] = (np.arctan(im_dy[i,j] / (im_dx[i,j] + 0.000001)) + np.pi/2)   # Epsilon added here to remove division by zero error.
     return grad_mag, grad_angle
 
 
 def build_histogram(grad_mag, grad_angle, cell_size):
     # To do
+    M = grad_mag.shape[0]//cell_size
+    N = grad_mag.shape[1]//cell_size
+    ori_histo = np.zeros((M,N,6))
+
+    # Convert the angels to degree for easy calculations.
+    grad_angle = np.degrees(grad_angle)
+    for i_cell in range(M):
+        for j_cell in range(N):
+            for i in range(i_cell*cell_size, i_cell*cell_size + cell_size):
+                for j in range(j_cell*cell_size, j_cell*cell_size + cell_size):
+                    bin_num = int((grad_angle[i,j] + 15)//30)
+                    if bin_num == 6:
+                        bin_num = 0
+                    ori_histo[i_cell,j_cell,bin_num] += grad_mag[i,j]
     return ori_histo
 
 
@@ -33,13 +76,22 @@ def get_block_descriptor(ori_histo, block_size):
 
 def extract_hog(im):
     # convert grey-scale image to double format
-    im = im.astype('float') / 255.0
+    im = im.astype('float') / 255.0   # Converted to float and normalized.
     # To do
+    filter_x, filter_y = get_differential_filter()
+    filter_image_x = filter_image(im, filter_x)
+    filter_image_y = filter_image(im, filter_y)
+
+    grad_mag, grad_angle = get_gradient(filter_image_x, filter_image_y)
+    cell_size = 8
+    ori_histo = build_histogram(grad_mag, grad_angle, cell_size)
+    ori_histo_normalized = get_block_descriptor(ori_histo, block_size)
 
     # visualize to verify
-    visualize_hog(im, hog, 8, 2)
+    # visualize_hog(im, hog, 8, 2)
 
-    return hog
+    # return hog
+    return 1
 
 
 # visualize histogram of each block
@@ -103,23 +155,20 @@ def visualize_face_detection(I_target,bounding_boxes,box_size):
     plt.imshow(fimg, vmin=0, vmax=1)
     plt.show()
 
-
-
-
 if __name__=='__main__':
 
     im = cv2.imread('cameraman.tif', 0)
     hog = extract_hog(im)
 
-    I_target= cv2.imread('target.png', 0)
-    #MxN image
+    # I_target = cv2.imread('target.png', 0)
+    # #MxN image
 
-    I_template = cv2.imread('template.png', 0)
-    #mxn  face template
+    # I_template = cv2.imread('template.png', 0)
+    # #mxn  face template
 
-    bounding_boxes=face_recognition(I_target, I_template)
+    # bounding_boxes=face_recognition(I_target, I_template)
 
-    I_target_c= cv2.imread('target.png')
-    # MxN image (just for visualization)
-    visualize_face_detection(I_target_c, bounding_boxes, I_template.shape[0])
-    #this is visualization code.
+    # I_target_c= cv2.imread('target.png')
+    # # MxN image (just for visualization)
+    # visualize_face_detection(I_target_c, bounding_boxes, I_template.shape[0])
+    # #this is visualization code.
