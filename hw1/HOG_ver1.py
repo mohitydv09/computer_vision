@@ -66,11 +66,28 @@ def build_histogram(grad_mag, grad_angle, cell_size):
                     if bin_num == 6:
                         bin_num = 0
                     ori_histo[i_cell,j_cell,bin_num] += grad_mag[i,j]
+    # print("Ori history size : ", ori_histo.shape)
+    # print("Ori Histo : \n",ori_histo[:,:,4])
     return ori_histo
 
 
 def get_block_descriptor(ori_histo, block_size):
     # To do
+    M,N,d = ori_histo.shape
+    ori_histo_normalized = np.zeros((M-1,N-1,d*block_size*block_size))
+    # print("M : ", M, " N : ", N , " d : ", d, " block size : ", block_size)
+    for i in range(M-block_size+1):
+        for j in range(N-block_size+1):
+            # Make a concatenated array.
+            concat_array = []
+            for m in range(block_size):
+                for n in range(block_size):
+                    # print('Curr Ori Hist : ', ori_histo[i+m, j+n,:])
+                    concat_array += list(ori_histo[i+m,j+n,:])
+            concat_array = np.array(concat_array)
+            norm_of_array = np.linalg.norm(concat_array)
+            concat_array = concat_array/(norm_of_array+0.000001)
+            ori_histo_normalized[i,j,:] = concat_array 
     return ori_histo_normalized
 
 
@@ -85,13 +102,13 @@ def extract_hog(im):
     grad_mag, grad_angle = get_gradient(filter_image_x, filter_image_y)
     cell_size = 8
     ori_histo = build_histogram(grad_mag, grad_angle, cell_size)
-    ori_histo_normalized = get_block_descriptor(ori_histo, block_size)
-
+    block_size = 2
+    hog = get_block_descriptor(ori_histo, block_size)
+    print(hog.shape)
     # visualize to verify
-    # visualize_hog(im, hog, 8, 2)
+    visualize_hog(im, hog, 8, 2)
 
-    # return hog
-    return 1
+    return hog
 
 
 # visualize histogram of each block
@@ -158,13 +175,14 @@ def visualize_face_detection(I_target,bounding_boxes,box_size):
 if __name__=='__main__':
 
     im = cv2.imread('cameraman.tif', 0)
+    print(im)
     hog = extract_hog(im)
 
-    # I_target = cv2.imread('target.png', 0)
-    # #MxN image
+    I_target = cv2.imread('target.png', 0)
+    #MxN image
 
-    # I_template = cv2.imread('template.png', 0)
-    # #mxn  face template
+    I_template = cv2.imread('template.png', 0)
+    #mxn  face template
 
     # bounding_boxes=face_recognition(I_target, I_template)
 
