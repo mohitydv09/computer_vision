@@ -27,12 +27,8 @@ def filter_image(im, filter):
     for i in range(pad_size, m+pad_size):
         for j in range(pad_size, n+pad_size):
             im_block = im_padded[i-pad_size:i+pad_size+1, j-pad_size:j+pad_size+1]
-            im_filtered[i-pad_size,j-pad_size] = np.sum(im_block*filter)
-    # im_filtered = im_filtered + 1
-    # im_filtered = im_filtered*(255/2)
-    # im_filtered = im_filtered.astype(np.uint8)
-    # cv2.imshow("Image ", im_filtered)
-    # cv2.waitKey(0)
+            im_filtered[i-pad_size,j-pad_size] = np.sum(im_block * filter)
+    # print("Filter Image ran, shape of filtered Image is : ",im_filtered.shape)
     return im_filtered
 
 
@@ -44,9 +40,13 @@ def get_gradient(im_dx, im_dy):
     grad_angle = np.zeros((m,n))
     for i in range(m):
         for j in range(n):
-            curr_mag = np.sqrt(np.square(im_dx[i,j]) + np.square(im_dy[i,j]))
-            grad_mag[i,j] = curr_mag
-            grad_angle[i,j] = (np.arctan(im_dy[i,j] / (im_dx[i,j] + 0.000001)) + np.pi/2)   # Epsilon added here to remove division by zero error.
+            grad_mag[i,j] = np.sqrt(np.square(im_dx[i,j]) + np.square(im_dy[i,j]))
+            angle = np.arctan2(im_dy[i,j], im_dx[i,j])
+            if (angle < 0):
+                angle += np.pi
+            grad_angle[i,j] = angle
+    # print("Grad Mag formed with shape : ", grad_mag.shape)
+    # print("Grad Angle formed with shape : ", grad_angle.shape)
     return grad_mag, grad_angle
 
 
@@ -65,17 +65,16 @@ def build_histogram(grad_mag, grad_angle, cell_size):
                     bin_num = int((grad_angle[i,j] + 15)//30)
                     if bin_num == 6:
                         bin_num = 0
+                    # Do magnitude addition this is correct.
                     ori_histo[i_cell,j_cell,bin_num] += grad_mag[i,j]
-    # print("Ori history size : ", ori_histo.shape)
-    # print("Ori Histo : \n",ori_histo[:,:,4])
+    # print("Ori history formed with size : ", ori_histo.shape)
     return ori_histo
 
 
 def get_block_descriptor(ori_histo, block_size):
     # To do
     M,N,d = ori_histo.shape
-    ori_histo_normalized = np.zeros((M-1,N-1,d*block_size*block_size))
-    # print("M : ", M, " N : ", N , " d : ", d, " block size : ", block_size)
+    ori_histo_normalized = np.zeros((M - block_size + 1, N - block_size + 1,d*block_size*block_size))
     for i in range(M-block_size+1):
         for j in range(N-block_size+1):
             # Make a concatenated array.
@@ -88,6 +87,7 @@ def get_block_descriptor(ori_histo, block_size):
             norm_of_array = np.linalg.norm(concat_array)
             concat_array = concat_array/(norm_of_array+0.000001)
             ori_histo_normalized[i,j,:] = concat_array 
+    # print("Ori History Normalized and retured with shape : ",ori_histo_normalized.shape)
     return ori_histo_normalized
 
 
@@ -104,9 +104,8 @@ def extract_hog(im):
     ori_histo = build_histogram(grad_mag, grad_angle, cell_size)
     block_size = 2
     hog = get_block_descriptor(ori_histo, block_size)
-    print(hog.shape)
     # visualize to verify
-    visualize_hog(im, hog, 8, 2)
+    # visualize_hog(im, hog, 8, 2)
 
     return hog
 
@@ -133,6 +132,60 @@ def visualize_hog(im, hog, cell_size, block_size):
 
 def face_recognition(I_target, I_template):
     # To do
+    #We have two image.
+    # Loop inside the target image.
+    M, N = I_target.shape
+    m, n = I_template.shape
+    # Initialize bounding box array.
+    bounding_boxes = np.zeros((1,3))
+    print("Target Shape : ", I_target.shape)
+    print("Template Shape : ", I_template.shape)
+
+    # Get the HOG.
+    hog_template = extract_hog(I_template).flatten()
+    print("Shape of Flattened Template : ", hog_template.shape)
+
+    print("First Loop : ", M-m+1)
+    print("Second Loop : ", N-n+1)
+
+    for i in range(0,M-m+1,10):
+        print("Current i is : ",i)
+        for j in range(0,N-n+1,10):
+            # print('i is : ',i)
+            # print("j is : ",j)
+            sub_image = I_target[i:i+m, j:j+n]
+
+            hog_image = extract_hog(sub_image).flatten()
+            # print("Shape of flattened image : ", hog_image.shape)
+
+            # u_image = sub_image.reshape(-1)
+            # v_temp = I_template.reshape(-1)
+            image_norm = hog_image - np.mean(hog_image)
+            template_norm = hog_template - np.mean(hog_template)
+            # print("Shape of image : ", image_norm.shape )
+            # print("Shape of Template : ", template_norm.shape)
+            score = np.dot(image_norm, template_norm) / (np.linalg.norm(image_norm) * np.linalg.norm(template_norm))
+            # Add all the items to bbs
+            if (i==0) and (j==0):
+                # First time running.
+                bounding_boxes[0] = np.array([j,i,score])
+            else:
+                bounding_boxes = np.vstack((bounding_boxes, np.array([j,i,score])))
+    
+    print("Shape of BB after adding everything is : ", bounding_boxes.shape)
+
+    # Thresholding.
+    threshold = bounding_boxes[:,2]>0.2
+    bounding_boxes = bounding_boxes[threshold]
+    print("Shape of BB after thres : ", bounding_boxes.shape)
+
+    # Non-maximal Suppression.
+    # Find the max bb.
+    max_score = np.argmax(bounding_boxes[:,2])
+    max_bb = bounding_boxes[max_score,:]
+    for bb in bounding_boxes:
+        print(bb)
+
     return  bounding_boxes
 
 
@@ -175,7 +228,6 @@ def visualize_face_detection(I_target,bounding_boxes,box_size):
 if __name__=='__main__':
 
     im = cv2.imread('cameraman.tif', 0)
-    print(im)
     hog = extract_hog(im)
 
     I_target = cv2.imread('target.png', 0)
@@ -184,9 +236,9 @@ if __name__=='__main__':
     I_template = cv2.imread('template.png', 0)
     #mxn  face template
 
-    # bounding_boxes=face_recognition(I_target, I_template)
+    bounding_boxes=face_recognition(I_target, I_template)
 
-    # I_target_c= cv2.imread('target.png')
-    # # MxN image (just for visualization)
-    # visualize_face_detection(I_target_c, bounding_boxes, I_template.shape[0])
-    # #this is visualization code.
+    I_target_c= cv2.imread('target.png')
+    # MxN image (just for visualization)
+    visualize_face_detection(I_target_c, bounding_boxes, I_template.shape[0])
+    #this is visualization code.
