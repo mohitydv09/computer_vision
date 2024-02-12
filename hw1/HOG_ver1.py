@@ -8,25 +8,34 @@ Do not change the input/output of each function, and do not remove the provided 
 
 def get_differential_filter():
     # To do
-    filter_x = np.array([[1,0,-1],[1,0,-1],[1,0,-1]])
-    filter_y = np.array([[1,1,1],[0,0,0],[-1,-1,-1]])
+    # Using Prewitt Filter.
+    filter_x = np.array([[1,0,-1],
+                         [1,0,-1],
+                         [1,0,-1]])
+    filter_y = np.array([[1,1,1],
+                         [0,0,0],
+                         [-1,-1,-1]])
     return filter_x, filter_y
 
 
 def filter_image(im, filter):
     # To do
     ## Pad the image according to the filter size.
-    k = filter.shape[0]
-    pad_size = k//2
+    # Get filter size
+    k = filter.shape[0]    # Assumed that the pad will always be odd.
+    pad_size = (k-1)//2
+
+    # Placeholder padded image.
     im_padded = np.zeros((im.shape[0] + 2*pad_size, im.shape[1] + 2*pad_size))
     im_padded[1:-1,1:-1] = im
     
     m, n = im.shape
-    im_filtered = np.zeros((m,n))
+    im_filtered = np.zeros((m,n))    #Placeholder for filteered Image
     # loop to go to every pixel calculate its value and store in im_filtered.
     for i in range(pad_size, m+pad_size):
         for j in range(pad_size, n+pad_size):
             im_block = im_padded[i-pad_size:i+pad_size+1, j-pad_size:j+pad_size+1]
+            # Applying correlation here.
             im_filtered[i-pad_size,j-pad_size] = np.sum(im_block * filter)
     # print("Filter Image ran, shape of filtered Image is : ",im_filtered.shape)
     return im_filtered
@@ -36,12 +45,14 @@ def get_gradient(im_dx, im_dy):
     # To do
     # Go to pixels in the image and replace with the magnitute.
     m,n = im_dx.shape
+    # Make placeholder np arrays.
     grad_mag = np.zeros((m,n))
     grad_angle = np.zeros((m,n))
     for i in range(m):
         for j in range(n):
             grad_mag[i,j] = np.sqrt(np.square(im_dx[i,j]) + np.square(im_dy[i,j]))
             angle = np.arctan2(im_dy[i,j], im_dx[i,j])
+            # To make the angle as given in problem i.e. between 0 to Pi.
             if (angle < 0):
                 angle += np.pi
             grad_angle[i,j] = angle
@@ -52,20 +63,26 @@ def get_gradient(im_dx, im_dy):
 
 def build_histogram(grad_mag, grad_angle, cell_size):
     # To do
+    # Get the size of histogram that will be formed, enges that are not in this size will be truncated.
     M = grad_mag.shape[0]//cell_size
     N = grad_mag.shape[1]//cell_size
+    # Create placeholder histogram, here depht of 6 is given manually as per problem.
     ori_histo = np.zeros((M,N,6))
 
     # Convert the angels to degree for easy calculations.
     grad_angle = np.degrees(grad_angle)
+
+    # Iterate over all the cells.
     for i_cell in range(M):
         for j_cell in range(N):
+            # Iterate insde the cells.
             for i in range(i_cell*cell_size, i_cell*cell_size + cell_size):
                 for j in range(j_cell*cell_size, j_cell*cell_size + cell_size):
+                    # get the bin in which this angle has to be placed.
                     bin_num = int((grad_angle[i,j] + 15)//30)
                     if bin_num == 6:
                         bin_num = 0
-                    # Do magnitude addition this is correct.
+                    # Do magnitude addition.
                     ori_histo[i_cell,j_cell,bin_num] += grad_mag[i,j]
     # print("Ori history formed with size : ", ori_histo.shape)
     return ori_histo
@@ -74,11 +91,14 @@ def build_histogram(grad_mag, grad_angle, cell_size):
 def get_block_descriptor(ori_histo, block_size):
     # To do
     M,N,d = ori_histo.shape
-    ori_histo_normalized = np.zeros((M - block_size + 1, N - block_size + 1,d*block_size*block_size))
+    ori_histo_normalized = np.zeros((M - block_size + 1, N - block_size + 1, d*block_size*block_size))
+
+    # Iterate over cells.
     for i in range(M-block_size+1):
         for j in range(N-block_size+1):
             # Make a concatenated array.
             concat_array = []
+            # Iterate over block size.
             for m in range(block_size):
                 for n in range(block_size):
                     # print('Curr Ori Hist : ', ori_histo[i+m, j+n,:])
@@ -95,13 +115,16 @@ def extract_hog(im):
     # convert grey-scale image to double format
     im = im.astype('float') / 255.0   # Converted to float and normalized.
     # To do
+    # Get the diffrential filter that are to be used.
     filter_x, filter_y = get_differential_filter()
     filter_image_x = filter_image(im, filter_x)
     filter_image_y = filter_image(im, filter_y)
 
     grad_mag, grad_angle = get_gradient(filter_image_x, filter_image_y)
+
     cell_size = 8
     ori_histo = build_histogram(grad_mag, grad_angle, cell_size)
+
     block_size = 2
     hog = get_block_descriptor(ori_histo, block_size)
     # visualize to verify
@@ -132,27 +155,24 @@ def visualize_hog(im, hog, cell_size, block_size):
 
 def face_recognition(I_target, I_template):
     # To do
-    #We have two image.
-    # Loop inside the target image.
     M, N = I_target.shape
     m, n = I_template.shape
     # Initialize bounding box array.
     bounding_boxes = np.zeros((1,3))
-    print("Target Shape : ", I_target.shape)
-    print("Template Shape : ", I_template.shape)
+    # print("Target Shape : ", I_target.shape)
+    # print("Template Shape : ", I_template.shape)
 
     # Get the HOG.
     hog_template = extract_hog(I_template).flatten()
-    print("Shape of Flattened Template : ", hog_template.shape)
+    # print("Shape of Flattened Template : ", hog_template.shape)
 
-    print("First Loop : ", M-m+1)
-    print("Second Loop : ", N-n+1)
+    # print("First Loop : ", M-m+1)
+    # print("Second Loop : ", N-n+1)
 
-    for i in range(0,M-m+1,10):
+    for i in range(0,M-m+1,1):
         print("Current i is : ",i)
-        for j in range(0,N-n+1,10):
-            # print('i is : ',i)
-            # print("j is : ",j)
+        for j in range(0,N-n+1,1):
+
             sub_image = I_target[i:i+m, j:j+n]
 
             hog_image = extract_hog(sub_image).flatten()
@@ -168,24 +188,69 @@ def face_recognition(I_target, I_template):
             # Add all the items to bbs
             if (i==0) and (j==0):
                 # First time running.
+                # Note the i,j are reversed as per x,y specified in the problem.
                 bounding_boxes[0] = np.array([j,i,score])
             else:
                 bounding_boxes = np.vstack((bounding_boxes, np.array([j,i,score])))
     
     print("Shape of BB after adding everything is : ", bounding_boxes.shape)
 
+    # Response Map.
+    response_map = False
+    if response_map:
+        score_arr = np.zeros((M,N))
+        print("Shape of score arr : ",score_arr.shape)
+        for bb in bounding_boxes:
+            score_arr[int(bb[1]), int(bb[0])] = bb[2]
+        # for i in range(M):
+        #     for j in range(N):
+        #         score_arr[i,j] = bounding_boxes[i,j]
+        plt.imshow(score_arr, cmap = 'gray')
+        plt.title("Response Map")
+        plt.colorbar()
+        plt.show()
+
     # Thresholding.
-    threshold = bounding_boxes[:,2]>0.2
+        # Threshold was tuned manually.
+    threshold = bounding_boxes[:,2]>0.48
     bounding_boxes = bounding_boxes[threshold]
     print("Shape of BB after thres : ", bounding_boxes.shape)
 
     # Non-maximal Suppression.
-    # Find the max bb.
-    max_score = np.argmax(bounding_boxes[:,2])
-    max_bb = bounding_boxes[max_score,:]
-    for bb in bounding_boxes:
-        print(bb)
+    final_bb = np.zeros((1,3))
+    while(len(bounding_boxes)>0):
+        # Find the max bb.
+        max_score = np.argmax(bounding_boxes[:,2])
+        max_bb = bounding_boxes[max_score,:]
+        # Delete max_bb form this set.
+        final_bb = np.vstack((final_bb, max_bb))
+        bounding_boxes = np.delete(bounding_boxes, max_score, axis=0)
 
+        i = 0
+        while i < len(bounding_boxes):
+            # We have max_bb and bb here.
+            # w is the difffrence between starting point of the two bbs in x direction.
+            w = abs(max_bb[1] - bounding_boxes[i,1])
+            h = abs(max_bb[0] - bounding_boxes[i,0])
+            # print("w is : ", w ," h is : ", h)
+            # if the image don't overlap
+            if(w > m) or (h > n):
+                i+=1
+                continue
+            # h = abs(max_bb[0] - bb[0])
+            int_x = m - w     # Int means intersection here
+            int_y = n - h    
+            int_area = int_x*int_y
+            iou = int_area / (2*m*n - int_area)
+            print("IoU is : ", iou)
+            if iou > 0.5:
+                # delete the item.
+                bounding_boxes = np.delete(bounding_boxes, i, axis=0)
+            else:
+                i+=1
+    #Remove the extra first row that we had.
+    bounding_boxes = final_bb[1:,:]
+    print("Final items in bb are : ", len(bounding_boxes))
     return  bounding_boxes
 
 
@@ -241,4 +306,4 @@ if __name__=='__main__':
     I_target_c= cv2.imread('target.png')
     # MxN image (just for visualization)
     visualize_face_detection(I_target_c, bounding_boxes, I_template.shape[0])
-    #this is visualization code.
+    # this is visualization code.
