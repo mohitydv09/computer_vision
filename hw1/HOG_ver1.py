@@ -127,6 +127,7 @@ def extract_hog(im):
 
     block_size = 2
     hog = get_block_descriptor(ori_histo, block_size)
+
     # visualize to verify
     # visualize_hog(im, hog, 8, 2)
 
@@ -169,9 +170,9 @@ def face_recognition(I_target, I_template):
     # print("First Loop : ", M-m+1)
     # print("Second Loop : ", N-n+1)
 
-    for i in range(0,M-m+1,1):
-        print("Current i is : ",i)
-        for j in range(0,N-n+1,1):
+    for i in range(0,M-m+1,3):
+        # print("Current i is : ",i)
+        for j in range(0,N-n+1,3):
 
             sub_image = I_target[i:i+m, j:j+n]
 
@@ -193,28 +194,13 @@ def face_recognition(I_target, I_template):
             else:
                 bounding_boxes = np.vstack((bounding_boxes, np.array([j,i,score])))
     
-    print("Shape of BB after adding everything is : ", bounding_boxes.shape)
-
-    # Response Map.
-    response_map = False
-    if response_map:
-        score_arr = np.zeros((M,N))
-        print("Shape of score arr : ",score_arr.shape)
-        for bb in bounding_boxes:
-            score_arr[int(bb[1]), int(bb[0])] = bb[2]
-        # for i in range(M):
-        #     for j in range(N):
-        #         score_arr[i,j] = bounding_boxes[i,j]
-        plt.imshow(score_arr, cmap = 'gray')
-        plt.title("Response Map")
-        plt.colorbar()
-        plt.show()
+    # print("Shape of BB after adding everything is : ", bounding_boxes.shape)
 
     # Thresholding.
-        # Threshold was tuned manually.
+    # Threshold was tuned manually.
     threshold = bounding_boxes[:,2]>0.48
     bounding_boxes = bounding_boxes[threshold]
-    print("Shape of BB after thres : ", bounding_boxes.shape)
+    # print("Shape of BB after thres : ", bounding_boxes.shape)
 
     # Non-maximal Suppression.
     final_bb = np.zeros((1,3))
@@ -242,7 +228,7 @@ def face_recognition(I_target, I_template):
             int_y = n - h    
             int_area = int_x*int_y
             iou = int_area / (2*m*n - int_area)
-            print("IoU is : ", iou)
+            # print("IoU is : ", iou)
             if iou > 0.5:
                 # delete the item.
                 bounding_boxes = np.delete(bounding_boxes, i, axis=0)
@@ -250,7 +236,7 @@ def face_recognition(I_target, I_template):
                 i+=1
     #Remove the extra first row that we had.
     bounding_boxes = final_bb[1:,:]
-    print("Final items in bb are : ", len(bounding_boxes))
+    # print("Final items in bb are : ", len(bounding_boxes))
     return  bounding_boxes
 
 
@@ -290,9 +276,11 @@ def visualize_face_detection(I_target,bounding_boxes,box_size):
     plt.imshow(fimg, vmin=0, vmax=1)
     plt.show()
 
+
 if __name__=='__main__':
 
     im = cv2.imread('cameraman.tif', 0)
+
     hog = extract_hog(im)
 
     I_target = cv2.imread('target.png', 0)
